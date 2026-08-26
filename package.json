@@ -14,8 +14,8 @@
     "electron": "electron .",
     "electron:client": "electron electron/client.js",
     "build:win": "npm run build:host && npm run build:client",
-    "build:host": "electron-builder --win nsis",
-    "build:client": "electron-builder --win nsis --config electron-builder.client.json"
+    "build:host": "electron-builder --win nsis --publish never",
+    "build:client": "electron-builder --win nsis --config electron-builder.client.json --publish never"
   },
   "dependencies": {
     "express": "^4.21.2",
