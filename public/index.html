@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Black Board - チャット</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="login-screen" class="screen">
+    <div class="login-card">
+      <h1>Black Board</h1>
+      <p class="subtitle">テキストと画像をリアルタイムでやりとり</p>
+      <input type="text" id="username-input" placeholder="ユーザー名" maxlength="20" autofocus>
+      <button id="join-btn">参加する</button>
+    </div>
+  </div>
+
+  <div id="chat-screen" class="screen hidden">
+    <header class="chat-header">
+      <div>
+        <h1>Black Board</h1>
+        <span id="online-count">0 人がオンライン</span>
+      </div>
+    </header>
+
+    <main id="messages" class="messages"></main>
+
+    <footer class="chat-input">
+      <div id="image-preview" class="image-preview hidden">
+        <img id="preview-img" alt="プレビュー">
+        <button id="remove-preview" type="button" aria-label="画像を削除">&times;</button>
+      </div>
+      <form id="message-form">
+        <label class="attach-btn" title="画像を添付">
+          <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+          📎
+        </label>
+        <input type="text" id="message-input" placeholder="メッセージを入力..." maxlength="2000" autocomplete="off">
+        <button type="submit" id="send-btn">送信</button>
+      </form>
+    </footer>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

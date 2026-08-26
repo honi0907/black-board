@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Black Board - 接続</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="screen">
+    <div class="login-card">
+      <h1>Black Board</h1>
+      <p class="subtitle">ホストの URL に接続して参加</p>
+      <input type="text" id="server-url" placeholder="http://192.168.1.10:3000" autofocus>
+      <p id="error-msg" class="error-msg hidden"></p>
+      <button id="connect-btn">接続する</button>
+    </div>
+  </div>
+  <script src="connect.js"></script>
+</body>
+</html>

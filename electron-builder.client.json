@@ -1,0 +1,40 @@
+{
+  "appId": "com.blackboard.chat.client",
+  "productName": "Black Board Connect",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "electron/client.js",
+    "electron/preload-connect.js",
+    "public/connect.html",
+    "public/connect.js",
+    "public/style.css",
+    "package.json"
+  ],
+  "asar": true,
+  "artifactName": "${productName}-Setup-${version}.${ext}",
+  "extraMetadata": {
+    "main": "electron/client.js"
+  },
+  "win": {
+    "signAndEditExecutable": false,
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ]
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "allowElevation": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Black Board Connect",
+    "installerLanguages": ["ja_JP", "en_US"],
+    "language": "1041",
+    "deleteAppDataOnUninstall": false
+  }
+}
