@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>アップデート</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: #0f1419;
+      color: #e7ecf3;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+    .wrap {
+      height: 100%;
+      padding: 22px 24px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 12px;
+    }
+    .status {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .bar {
+      height: 10px;
+      background: #1a2332;
+      border: 1px solid #2d3a4f;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .fill {
+      height: 100%;
+      width: 0%;
+      background: #3b82f6;
+      border-radius: inherit;
+      transition: width 0.2s ease;
+    }
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: #8b9cb3;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="status" class="status">ダウンロードの準備をしています…</div>
+    <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div id="fill" class="fill"></div>
+    </div>
+    <div class="meta">
+      <span id="detail">GitHub からインストーラーを取得します</span>
+      <span id="percent">0%</span>
+    </div>
+  </div>
+  <script>
+    window.updateProgress = function updateProgress(payload) {
+      if (!payload || typeof payload !== 'object') return;
+      var status = document.getElementById('status');
+      var fill = document.getElementById('fill');
+      var detail = document.getElementById('detail');
+      var percentEl = document.getElementById('percent');
+      var bar = document.querySelector('.bar');
+      var percent = Math.max(0, Math.min(100, Number(payload.percent) || 0));
+
+      if (payload.status) status.textContent = payload.status;
+      if (payload.detail) detail.textContent = payload.detail;
+      fill.style.width = percent + '%';
+      percentEl.textContent = Math.round(percent) + '%';
+      bar.setAttribute('aria-valuenow', String(Math.round(percent)));
+    };
+  </script>
+</body>
+</html>

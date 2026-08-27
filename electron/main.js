@@ -7,6 +7,7 @@ const { resolveAppIconPath } = require('./icon-path');
 
 let mainWindow = null;
 let httpServer = null;
+let ioServer = null;
 let serverPort = null;
 let lanIps = [];
 let uploadDir = null;
@@ -83,7 +84,7 @@ function createWindow() {
   });
 
   mainWindow.once('ready-to-show', () => {
-    setupAutoUpdater(mainWindow);
+    setupAutoUpdater(mainWindow, { onBeforeInstall: stopServer });
   });
 }
 
@@ -99,6 +100,7 @@ async function startApp() {
       dataDir: paths.dataDir,
     });
     httpServer = info.server;
+    ioServer = info.io;
     serverPort = info.port;
     lanIps = info.lanIps;
     createWindow();
@@ -109,8 +111,23 @@ async function startApp() {
 }
 
 function stopServer() {
+  if (ioServer) {
+    try {
+      ioServer.close();
+    } catch (_err) {
+      // ignore
+    }
+    ioServer = null;
+  }
   if (httpServer) {
-    httpServer.close();
+    try {
+      if (typeof httpServer.closeAllConnections === 'function') {
+        httpServer.closeAllConnections();
+      }
+      httpServer.close();
+    } catch (_err) {
+      // ignore
+    }
     httpServer = null;
   }
 }

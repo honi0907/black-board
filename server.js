@@ -537,7 +537,7 @@ function startServer(options = {}) {
     if (lastSavedAt) {
       console.log(`  前回保存: ${new Date(lastSavedAt).toLocaleString('ja-JP')}`);
     }
-    return { server, port: actualPort, lanIps, uploadDir, dataDir };
+    return { server, io, port: actualPort, lanIps, uploadDir, dataDir };
   });
 }
 
