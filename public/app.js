@@ -430,8 +430,27 @@ function extFromMime(mime) {
     'image/png': 'png',
     'image/gif': 'gif',
     'image/webp': 'webp',
+    'application/pdf': 'pdf',
   };
-  return map[mime] || 'png';
+  if (map[mime]) return map[mime];
+  if (mime?.includes('word')) return 'docx';
+  if (mime?.includes('sheet') || mime?.includes('excel')) return 'xlsx';
+  if (mime?.includes('presentation') || mime?.includes('powerpoint')) return 'pptx';
+  if (mime?.startsWith('text/')) return 'txt';
+  if (mime?.startsWith('audio/')) return 'mp3';
+  if (mime?.startsWith('video/')) return 'mp4';
+  return 'bin';
+}
+
+const ATTACHABLE_EXT = /\.(jpe?g|png|gif|webp|pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|md|json|zip|rar|7z|mp3|mp4|wav|webm|ogg)$/i;
+
+function fileExtLabel(name) {
+  const ext = (String(name || '').split('.').pop() || 'file').toUpperCase();
+  return ext.slice(0, 4);
+}
+
+function getItemAssetUrl(item) {
+  return item.imageUrl || item.fileUrl || '';
 }
 
 const EXPORT_DRAG_TYPE = 'application/x-blackboard-export';
@@ -453,7 +472,7 @@ function cacheImageBlob(url) {
 }
 
 function isInteractiveHandle(target) {
-  return target.closest('.delete-btn, .copy-btn, .export-handle, .resize-handle, .rotate-handle, .note-color-btn, .board-item-note-input, .board-item-note-content');
+  return target.closest('.delete-btn, .copy-btn, .export-handle, .resize-handle, .rotate-handle, .note-color-btn, .board-item-note-input, .board-item-note-content, .board-item-file-open');
 }
 
 function darkenHex(hex, amount = 0.12) {
@@ -830,7 +849,8 @@ function setupExportHandle(handle, item) {
   handle.draggable = true;
   handle.title = 'PCのデスクトップやフォルダにドラッグして保存';
 
-  cacheImageBlob(item.imageUrl);
+  const assetUrl = getItemAssetUrl(item);
+  cacheFileBlob(assetUrl);
 
   handle.addEventListener('dragstart', (e) => {
     e.stopPropagation();
@@ -839,25 +859,52 @@ function setupExportHandle(handle, item) {
 
     if (window.electronHost) {
       e.preventDefault();
-      window.electronHost.startDrag(item.imageUrl);
+      window.electronHost.startDrag(assetUrl);
       return;
     }
 
-    const blob = imageBlobCache.get(item.imageUrl);
+    const blob = imageBlobCache.get(assetUrl);
     if (!blob) {
       e.preventDefault();
-      cacheImageBlob(item.imageUrl);
-      showToast('画像を準備中です。少し待ってから再度ドラッグしてください');
+      cacheFileBlob(assetUrl);
+      showToast('ファイルを準備中です。少し待ってから再度ドラッグしてください');
       return;
     }
 
-    const ext = extFromMime(blob.type);
-    const file = new File([blob], `blackboard-${item.id.slice(-8)}.${ext}`, { type: blob.type });
+    const fallbackName = item.fileName || `blackboard-${item.id.slice(-8)}.${extFromMime(blob.type)}`;
+    const file = new File([blob], fallbackName, { type: blob.type || item.mimeType || 'application/octet-stream' });
     e.dataTransfer.items.clear();
     e.dataTransfer.items.add(file);
   });
 
   handle.addEventListener('pointerdown', (e) => e.stopPropagation());
+}
+
+function buildAttachmentHeader(item, actions) {
+  const header = document.createElement('div');
+  header.className = 'board-item-header';
+
+  const label = document.createElement('span');
+  label.className = 'board-item-label';
+  label.textContent = item.username;
+
+  const actionWrap = document.createElement('div');
+  actionWrap.className = 'board-item-actions';
+
+  const rotateHandle = document.createElement('button');
+  rotateHandle.type = 'button';
+  rotateHandle.className = 'rotate-handle';
+  rotateHandle.textContent = '↻';
+  rotateHandle.title = '回転';
+  rotateHandle.addEventListener('pointerdown', (e) => startRotate(e, item));
+
+  actionWrap.appendChild(rotateHandle);
+  if (typeof actions === 'function') actions(actionWrap);
+  actionWrap.appendChild(createDeleteButton(item));
+
+  header.appendChild(label);
+  header.appendChild(actionWrap);
+  return header;
 }
 
 function startResize(e, item) {
@@ -922,28 +969,9 @@ function createBoardItemElement(rawItem) {
   body.className = 'board-item-body';
 
   if (item.type === 'image') {
-    const header = document.createElement('div');
-    header.className = 'board-item-header';
-
-    const label = document.createElement('span');
-    label.className = 'board-item-label';
-    label.textContent = item.username;
-
-    const actions = document.createElement('div');
-    actions.className = 'board-item-actions';
-
-    header.appendChild(label);
-    header.appendChild(actions);
-
-    const rotateHandle = document.createElement('button');
-    rotateHandle.type = 'button';
-    rotateHandle.className = 'rotate-handle';
-    rotateHandle.textContent = '↻';
-    rotateHandle.title = '回転';
-    rotateHandle.addEventListener('pointerdown', (e) => startRotate(e, item));
-
-    actions.appendChild(rotateHandle);
-    actions.appendChild(createDeleteButton(item));
+    const header = buildAttachmentHeader(item, (actions) => {
+      /* delete appended in buildAttachmentHeader */
+    });
 
     const wrap = document.createElement('div');
     wrap.className = 'board-item-image-wrap';
@@ -952,8 +980,8 @@ function createBoardItemElement(rawItem) {
     img.src = item.imageUrl;
     img.alt = 'ボード画像';
     img.draggable = false;
-    img.addEventListener('load', () => cacheImageBlob(item.imageUrl));
-    if (img.complete) cacheImageBlob(item.imageUrl);
+    img.addEventListener('load', () => cacheFileBlob(item.imageUrl));
+    if (img.complete) cacheFileBlob(item.imageUrl);
     img.addEventListener('dblclick', (e) => {
       e.stopPropagation();
       openLightbox(item.imageUrl);
@@ -975,6 +1003,46 @@ function createBoardItemElement(rawItem) {
     wrap.appendChild(exportHandle);
     wrap.appendChild(resizeHandle);
     body.appendChild(wrap);
+    el.appendChild(header);
+    el.appendChild(body);
+  } else if (item.type === 'file') {
+    const header = buildAttachmentHeader(item, () => {});
+
+    const card = document.createElement('div');
+    card.className = 'board-item-file';
+
+    const badge = document.createElement('div');
+    badge.className = 'board-item-file-badge';
+    badge.textContent = fileExtLabel(item.fileName);
+
+    const name = document.createElement('div');
+    name.className = 'board-item-file-name';
+    name.textContent = item.fileName;
+    name.title = item.fileName;
+
+    const openBtn = document.createElement('button');
+    openBtn.type = 'button';
+    openBtn.className = 'board-item-file-open';
+    openBtn.textContent = '開く';
+    openBtn.title = 'ファイルを開く';
+    openBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.open(item.fileUrl, '_blank', 'noopener');
+    });
+
+    const exportHandle = document.createElement('button');
+    exportHandle.type = 'button';
+    exportHandle.className = 'export-handle board-item-file-export';
+    exportHandle.textContent = '↗';
+    exportHandle.setAttribute('aria-label', 'PCにドラッグして保存');
+    setupExportHandle(exportHandle, item);
+
+    card.appendChild(badge);
+    card.appendChild(name);
+    card.appendChild(openBtn);
+    card.appendChild(exportHandle);
+    cacheFileBlob(item.fileUrl);
+    body.appendChild(card);
     el.appendChild(header);
     el.appendChild(body);
   } else {
@@ -1111,9 +1179,9 @@ function moveItemOnBoard(data) {
   updateItemOnBoard(data);
 }
 
-async function uploadImage(file) {
+async function uploadFile(file) {
   const formData = new FormData();
-  formData.append('image', file);
+  formData.append('file', file);
 
   const res = await fetch('/upload', { method: 'POST', body: formData });
   const data = await res.json();
@@ -1121,7 +1189,7 @@ async function uploadImage(file) {
   if (!res.ok) {
     throw new Error(data.error || 'アップロードに失敗しました');
   }
-  return data.url;
+  return data;
 }
 
 function isImageFile(file) {
@@ -1130,13 +1198,19 @@ function isImageFile(file) {
   return /\.(jpe?g|png|gif|webp)$/i.test(file.name || '');
 }
 
+function isAttachableFile(file) {
+  if (!file) return false;
+  if (isImageFile(file)) return true;
+  return ATTACHABLE_EXT.test(file.name || '');
+}
+
 function hasIncomingFiles(dt) {
   if (!dt || isExportDrag(dt)) return false;
   return [...dt.types].includes('Files');
 }
 
 function getFilesFromDataTransfer(dt) {
-  const files = [...dt.files].filter(isImageFile);
+  const files = [...dt.files].filter(isAttachableFile);
   if (files.length) return files;
 
   if (!dt.items) return [];
@@ -1145,39 +1219,53 @@ function getFilesFromDataTransfer(dt) {
   for (const item of dt.items) {
     if (item.kind !== 'file') continue;
     const file = item.getAsFile();
-    if (file && isImageFile(file)) fromItems.push(file);
+    if (file && isAttachableFile(file)) fromItems.push(file);
   }
   return fromItems;
 }
 
-async function placeImage(file, point) {
+async function placeAttachment(file, point) {
   if (!socket) return;
 
   try {
-    const imageUrl = await uploadImage(file);
-    socket.emit('board:add', {
-      type: 'image',
+    const uploaded = await uploadFile(file);
+    const base = {
       x: Math.max(0, point.x - 100),
       y: Math.max(0, point.y - 80),
-      imageUrl,
-      width: 280,
       rotation: 0,
-    });
+    };
+
+    if (isImageFile(file)) {
+      socket.emit('board:add', {
+        ...base,
+        type: 'image',
+        imageUrl: uploaded.url,
+        width: 280,
+      });
+    } else {
+      socket.emit('board:add', {
+        ...base,
+        type: 'file',
+        fileUrl: uploaded.url,
+        fileName: uploaded.fileName || file.name,
+        mimeType: uploaded.mimeType || file.type || 'application/octet-stream',
+      });
+    }
   } catch (err) {
     showToast(err.message);
   }
 }
 
 async function handleFiles(files, point) {
-  const imageFiles = files.filter(isImageFile);
-  if (!imageFiles.length) {
-    showToast('画像ファイル（JPG, PNG, GIF, WebP）をドロップしてください');
+  const attachable = files.filter(isAttachableFile);
+  if (!attachable.length) {
+    showToast('対応ファイル（画像 / PDF / Office / テキスト / ZIP など）をドロップしてください');
     return;
   }
 
   let offset = 0;
-  for (const file of imageFiles) {
-    await placeImage(file, {
+  for (const file of attachable) {
+    await placeAttachment(file, {
       x: point.x + offset,
       y: point.y + offset,
     });
@@ -1213,7 +1301,7 @@ function setupDropZone() {
 
     const files = getFilesFromDataTransfer(e.dataTransfer);
     if (!files.length) {
-      showToast('画像ファイル（JPG, PNG, GIF, WebP）をドロップしてください');
+      showToast('対応ファイル（画像 / PDF / Office / テキスト / ZIP など）をドロップしてください');
       return;
     }
 
@@ -1224,7 +1312,7 @@ function setupDropZone() {
 document.addEventListener('paste', async (e) => {
   if (!socket || boardScreen.classList.contains('hidden')) return;
 
-  const files = [...(e.clipboardData?.files || [])].filter(isImageFile);
+  const files = [...(e.clipboardData?.files || [])].filter(isAttachableFile);
   if (!files.length) return;
 
   e.preventDefault();
@@ -1234,7 +1322,7 @@ document.addEventListener('paste', async (e) => {
 addImageBtn?.addEventListener('click', () => fileInput?.click());
 
 fileInput?.addEventListener('change', async (e) => {
-  const files = [...e.target.files].filter(isImageFile);
+  const files = [...e.target.files].filter(isAttachableFile);
   fileInput.value = '';
   if (!files.length) return;
   await handleFiles(files, getViewportCenterPoint());

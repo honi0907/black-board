@@ -1,6 +1,6 @@
 {
   "name": "black-board",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "オンラインで画像とテキストをやりとりできるチャットアプリ",
   "author": "honi0907",
   "license": "MIT",
@@ -13,6 +13,8 @@
     "start": "node server.js",
     "electron": "electron .",
     "electron:client": "electron electron/client.js",
+    "generate-icon": "node scripts/generate-icon.js",
+    "prebuild:host": "node scripts/generate-icon.js",
     "build:win": "npm run build:host && npm run build:client",
     "build:host": "electron-builder --win nsis --publish never",
     "build:host:release": "electron-builder --win nsis --publish always",
@@ -26,13 +28,15 @@
   },
   "devDependencies": {
     "electron": "^33.2.1",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "sharp": "^0.35.4"
   },
   "build": {
     "appId": "com.blackboard.chat",
     "productName": "Black Board",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "electron/**/*",
@@ -43,6 +47,7 @@
     "asar": true,
     "artifactName": "${productName}-Setup-${version}.${ext}",
     "win": {
+      "icon": "build/icon.png",
       "signAndEditExecutable": false,
       "target": [
         {

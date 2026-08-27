@@ -2,7 +2,8 @@
   "appId": "com.blackboard.chat.client",
   "productName": "Black Board Connect",
   "directories": {
-    "output": "dist"
+    "output": "dist",
+    "buildResources": "build"
   },
   "files": [
     "electron/client.js",
@@ -18,6 +19,7 @@
     "main": "electron/client.js"
   },
   "win": {
+    "icon": "build/icon.png",
     "signAndEditExecutable": false,
     "target": [
       {

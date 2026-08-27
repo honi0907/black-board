@@ -780,6 +780,60 @@ body {
   cursor: grabbing;
 }
 
+.board-item-file {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 160px;
+  max-width: 240px;
+  padding: 0.65rem 0.75rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.board-item-file-badge {
+  align-self: flex-start;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  background: rgba(59, 130, 246, 0.15);
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+}
+
+.board-item-file-name {
+  font-size: 0.8rem;
+  line-height: 1.35;
+  word-break: break-all;
+  color: var(--text);
+}
+
+.board-item-file-open {
+  align-self: flex-start;
+  margin-top: 0.15rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-hover);
+  color: var(--text);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.board-item-file-open:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.board-item-file-export {
+  top: 6px;
+  right: 6px;
+}
+
 .resize-handle {
   position: absolute;
   right: -6px;

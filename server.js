@@ -9,6 +9,15 @@ const { Server } = require('socket.io');
 const DEFAULT_PORT = Number(process.env.PORT) || 3000;
 const MAX_BOARD_ITEMS = 150;
 const AUTOSAVE_DELAY_MS = 2000;
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+const ALLOWED_IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
+const ALLOWED_FILE_EXT = new Set([
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+  '.txt', '.csv', '.md', '.json', '.zip', '.rar', '.7z',
+  '.mp3', '.mp4', '.wav', '.webm', '.ogg',
+]);
 
 function getLanIps() {
   const nets = os.networkInterfaces();
@@ -72,11 +81,11 @@ function startServer(options = {}) {
 
   const upload = multer({
     storage,
-    limits: { fileSize: 5 * 1024 * 1024 },
+    limits: { fileSize: MAX_FILE_SIZE },
     fileFilter: (_req, file, cb) => {
-      const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
       const ext = path.extname(file.originalname).toLowerCase();
-      cb(null, allowed.includes(ext));
+      const allowed = ALLOWED_IMAGE_EXT.has(ext) || ALLOWED_FILE_EXT.has(ext);
+      cb(null, allowed);
     },
   });
 
@@ -264,6 +273,9 @@ function startServer(options = {}) {
       x: Math.max(0, Number(data.x) || 0),
       y: Math.max(0, Number(data.y) || 0),
       imageUrl: data.imageUrl || null,
+      fileUrl: data.fileUrl || null,
+      fileName: data.fileName ? String(data.fileName).slice(0, 120) : null,
+      mimeType: data.mimeType ? String(data.mimeType).slice(0, 80) : null,
       text: data.text ? String(data.text).trim().slice(0, 200) : null,
       noteColor: data.type === 'text' ? normalizeHexColor(data.noteColor, '#fef3c7') : null,
       width: data.type === 'image' ? clamp(Number(data.width) || 280, 80, 900) : null,
@@ -275,6 +287,7 @@ function startServer(options = {}) {
 
   function isValidItem(item) {
     if (item.type === 'image') return !!item.imageUrl;
+    if (item.type === 'file') return !!item.fileUrl && !!item.fileName;
     if (item.type === 'text') return !!item.text;
     return false;
   }
@@ -314,11 +327,24 @@ function startServer(options = {}) {
     res.json(payload);
   });
 
-  app.post('/upload', upload.single('image'), (req, res) => {
+  app.post('/upload', upload.single('file'), (req, res) => {
     if (!req.file) {
-      return res.status(400).json({ error: '画像ファイルを選択してください（JPG, PNG, GIF, WebP / 最大5MB）' });
+      return res.status(400).json({
+        error: '対応ファイルを選択してください（画像 / PDF / Office / テキスト / ZIP など / 最大10MB）',
+      });
     }
-    res.json({ url: `/uploads/${req.file.filename}` });
+
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    if (ALLOWED_IMAGE_EXT.has(ext) && req.file.size > MAX_IMAGE_SIZE) {
+      fs.unlink(req.file.path, () => {});
+      return res.status(400).json({ error: '画像は最大5MBまでです' });
+    }
+
+    res.json({
+      url: `/uploads/${req.file.filename}`,
+      fileName: req.file.originalname,
+      mimeType: req.file.mimetype || 'application/octet-stream',
+    });
   });
 
   io.on('connection', (socket) => {

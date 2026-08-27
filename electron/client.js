@@ -56,12 +56,14 @@ function createMenu() {
 }
 
 function createWindow() {
+  const iconPath = path.join(__dirname, '..', 'build', 'icon.png');
   mainWindow = new BrowserWindow({
     width: 960,
     height: 720,
     minWidth: 360,
     minHeight: 480,
-    title: 'Black Board',
+    title: 'Black Board Connect',
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,

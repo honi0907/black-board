@@ -31,8 +31,8 @@
           <button type="button" id="save-btn" class="tool-btn" title="ボードを保存">保存</button>
           <button type="button" id="export-btn" class="tool-btn" title="JSONファイルとしてダウンロード">書き出し</button>
           <span id="save-status" class="save-status" title="自動保存の状態"></span>
-          <input type="file" id="file-input" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
-          <button type="button" id="add-image-btn" class="tool-btn" title="画像を追加">＋画像</button>
+          <input type="file" id="file-input" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.json,.zip,.rar,.7z,audio/*,video/mp4,video/webm" hidden>
+          <button type="button" id="add-image-btn" class="tool-btn" title="ファイルを添付">＋添付</button>
           <div id="host-info" class="host-url-inline hidden">
             <div id="host-urls" class="host-urls"></div>
           </div>
@@ -96,7 +96,7 @@
         <canvas id="draw-canvas"></canvas>
         <div id="board-empty" class="board-empty">
           <div class="board-empty-icon">🖼</div>
-          <p>画像をドラッグ＆ドロップ · Ctrl+V</p>
+          <p>画像・PDFなどをドラッグ＆ドロップ · Ctrl+V</p>
         </div>
       </div>
     </div>
@@ -108,6 +108,6 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/draw.js?v=6"></script>
-  <script src="/app.js?v=11"></script>
+  <script src="/app.js?v=12"></script>
 </body>
 </html>
