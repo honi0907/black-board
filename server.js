@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { Server } = require('socket.io');
+const { isOfficeExt, createOfficePreview } = require('./office-convert');
 
 const DEFAULT_PORT = Number(process.env.PORT) || 3000;
 const MAX_BOARD_ITEMS = 150;
@@ -265,6 +266,17 @@ function startServer(options = {}) {
     };
   }
 
+  function isPdfAttachment(data) {
+    if (data.mimeType === 'application/pdf') return true;
+    const name = data.fileName || data.fileUrl || '';
+    return /\.pdf$/i.test(name);
+  }
+
+  function hasInlinePreviewAttachment(data) {
+    if (data.previewUrl) return true;
+    return isPdfAttachment(data);
+  }
+
   function createItem(data, username) {
     const item = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -274,11 +286,19 @@ function startServer(options = {}) {
       y: Math.max(0, Number(data.y) || 0),
       imageUrl: data.imageUrl || null,
       fileUrl: data.fileUrl || null,
+      previewUrl: data.previewUrl ? String(data.previewUrl).slice(0, 200) : null,
       fileName: data.fileName ? String(data.fileName).slice(0, 120) : null,
       mimeType: data.mimeType ? String(data.mimeType).slice(0, 80) : null,
       text: data.text ? String(data.text).trim().slice(0, 200) : null,
       noteColor: data.type === 'text' ? normalizeHexColor(data.noteColor, '#fef3c7') : null,
-      width: data.type === 'image' ? clamp(Number(data.width) || 280, 80, 900) : null,
+      width: data.type === 'image'
+        ? clamp(Number(data.width) || 280, 80, 900)
+        : (data.type === 'file' && hasInlinePreviewAttachment(data))
+          ? clamp(Number(data.width) || 320, 160, 900)
+          : null,
+      height: (data.type === 'file' && hasInlinePreviewAttachment(data))
+        ? clamp(Number(data.height) || 420, 200, 900)
+        : null,
       rotation: clamp(Number(data.rotation) || 0, -180, 180),
       time: Date.now(),
     };
@@ -327,7 +347,7 @@ function startServer(options = {}) {
     res.json(payload);
   });
 
-  app.post('/upload', upload.single('file'), (req, res) => {
+  app.post('/upload', upload.single('file'), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({
         error: '対応ファイルを選択してください（画像 / PDF / Office / テキスト / ZIP など / 最大10MB）',
@@ -340,11 +360,22 @@ function startServer(options = {}) {
       return res.status(400).json({ error: '画像は最大5MBまでです' });
     }
 
-    res.json({
+    const payload = {
       url: `/uploads/${req.file.filename}`,
       fileName: req.file.originalname,
       mimeType: req.file.mimetype || 'application/octet-stream',
-    });
+    };
+
+    if (isOfficeExt(ext)) {
+      const previewName = await createOfficePreview(req.file.path, uploadDir);
+      if (previewName) {
+        payload.previewUrl = `/uploads/${previewName}`;
+      } else {
+        payload.previewError = 'LibreOffice が見つからないか、変換に失敗しました';
+      }
+    }
+
+    res.json(payload);
   });
 
   io.on('connection', (socket) => {
@@ -459,6 +490,12 @@ function startServer(options = {}) {
       if (item.type === 'image' && data.width != null) {
         item.width = clamp(Number(data.width) || item.width, 80, 900);
       }
+      if (item.type === 'file' && hasInlinePreviewAttachment(item) && data.width != null) {
+        item.width = clamp(Number(data.width) || item.width, 160, 900);
+      }
+      if (item.type === 'file' && hasInlinePreviewAttachment(item) && data.height != null) {
+        item.height = clamp(Number(data.height) || item.height, 200, 900);
+      }
       if (data.rotation != null) {
         item.rotation = clamp(Number(data.rotation) || 0, -180, 180);
       }
@@ -477,6 +514,7 @@ function startServer(options = {}) {
         x: item.x,
         y: item.y,
         width: item.width,
+        height: item.height,
         rotation: item.rotation,
         text: item.type === 'text' ? item.text : undefined,
         noteColor: item.type === 'text' ? item.noteColor : undefined,

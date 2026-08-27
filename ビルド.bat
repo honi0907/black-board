@@ -18,7 +18,8 @@ if not exist "node_modules\electron-builder\" (
 
 echo.
 echo  ホスト用・接続用のインストーラをビルドしています...
-echo  数分かかる場合があります。
+echo  初回は LibreOffice の同梱準備で約 300MB ダウンロードします。
+echo  数十分かかる場合があります。
 echo.
 
 set CSC_IDENTITY_AUTO_DISCOVERY=false

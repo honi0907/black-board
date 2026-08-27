@@ -5,6 +5,20 @@ All notable changes to Black Board are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-08-28
+
+### Added
+
+- PDF をボード上でアプリ内プレビュー（拡大・横縦リサイズ）
+- Office ファイル（Word / Excel / PowerPoint）を PDF に変換してプレビュー
+- ホスト用インストーラーに LibreOffice を同梱（追加インストール不要）
+
+### Fixed
+
+- 画像・PDF 添付が表示されない問題（`cacheFileBlob` 未定義）
+- Black Board Connect が起動できない問題（`icon-path.js` 未同梱）
+- PDF プレビューの枠表示と縦方向リサイズ
+
 ## [1.2.2] - 2026-08-27
 
 ### Fixed

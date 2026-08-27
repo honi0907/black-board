@@ -463,16 +463,48 @@ function isExportDrag(dt) {
   return dt.types && [...dt.types].includes(EXPORT_DRAG_TYPE);
 }
 
-function cacheImageBlob(url) {
-  if (imageBlobCache.has(url)) return;
+function cacheFileBlob(url) {
+  if (!url || imageBlobCache.has(url)) return;
   fetch(url)
-    .then((r) => r.blob())
+    .then((r) => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.blob();
+    })
     .then((blob) => imageBlobCache.set(url, blob))
     .catch(() => {});
 }
 
+function cacheImageBlob(url) {
+  cacheFileBlob(url);
+}
+
+const OFFICE_EXT = /\.(doc|docx|xls|xlsx|ppt|pptx)$/i;
+
+function isOfficeFile(file) {
+  if (!file) return false;
+  return OFFICE_EXT.test(file.name || '');
+}
+
+function getPreviewUrl(item) {
+  if (!item) return null;
+  if (item.previewUrl) return item.previewUrl;
+  if (item.mimeType === 'application/pdf') return item.fileUrl;
+  if (/\.pdf$/i.test(item.fileName || item.fileUrl || '')) return item.fileUrl;
+  return null;
+}
+
+function hasInlinePreview(item) {
+  return item?.type === 'file' && !!getPreviewUrl(item);
+}
+
+function isPdfItem(item) {
+  if (!item) return false;
+  if (item.mimeType === 'application/pdf') return true;
+  return /\.pdf$/i.test(item.fileName || item.fileUrl || '');
+}
+
 function isInteractiveHandle(target) {
-  return target.closest('.delete-btn, .copy-btn, .export-handle, .resize-handle, .rotate-handle, .note-color-btn, .board-item-note-input, .board-item-note-content, .board-item-file-open');
+  return target.closest('.delete-btn, .copy-btn, .export-handle, .resize-handle, .rotate-handle, .note-color-btn, .board-item-note-input, .board-item-note-content, .board-item-file-open, .board-item-file-open-inline, .board-item-file-expand, .board-item-file-preview, .board-item-pdf-frame');
 }
 
 function darkenHex(hex, amount = 0.12) {
@@ -577,6 +609,17 @@ function applyItemStyles(el, item) {
     }
   }
 
+  if (item.type === 'file' && hasInlinePreview(item)) {
+    const shell = el.querySelector('.board-item-pdf-shell');
+    const preview = el.querySelector('.board-item-file-preview');
+    if (shell && item.width) {
+      shell.style.width = `${item.width}px`;
+    }
+    if (preview && item.height) {
+      preview.style.height = `${item.height}px`;
+    }
+  }
+
   if (item.type === 'text') {
     applyNoteAppearance(el, item);
   }
@@ -658,6 +701,7 @@ function updateItemOnBoard(data) {
   if (data.x != null) item.x = data.x;
   if (data.y != null) item.y = data.y;
   if (data.width != null) item.width = data.width;
+  if (data.height != null) item.height = data.height;
   if (data.rotation != null) item.rotation = data.rotation;
   if (data.text != null) item.text = data.text;
   if (data.noteColor != null) item.noteColor = data.noteColor;
@@ -909,8 +953,14 @@ function buildAttachmentHeader(item, actions) {
 
 function startResize(e, item) {
   const el = itemElements.get(item.id);
-  const img = el?.querySelector('.board-item-image-wrap img');
-  if (!el || !img) return;
+  let target = null;
+  const isPreview = item.type === 'file' && hasInlinePreview(item);
+  if (item.type === 'image') {
+    target = el?.querySelector('.board-item-image-wrap img');
+  } else if (isPreview) {
+    target = el?.querySelector('.board-item-file-preview');
+  }
+  if (!el || !target) return;
 
   e.preventDefault();
   e.stopPropagation();
@@ -923,8 +973,126 @@ function startResize(e, item) {
     el,
     pointerId: e.pointerId,
     startClientX: e.clientX,
-    startWidth: img.offsetWidth || item.width || 280,
+    startClientY: e.clientY,
+    startWidth: target.offsetWidth || item.width || 280,
+    startHeight: isPreview ? (target.offsetHeight || item.height || 420) : null,
+    resizePreview: isPreview,
   };
+}
+
+function buildPdfPreview(item) {
+  const previewUrl = getPreviewUrl(item);
+  if (!previewUrl) return buildFileCard(item);
+
+  const shell = document.createElement('div');
+  shell.className = 'board-item-pdf-shell';
+
+  const chrome = document.createElement('div');
+  chrome.className = 'board-item-pdf-chrome';
+
+  const name = document.createElement('span');
+  name.className = 'board-item-pdf-name';
+  name.textContent = item.fileName || 'プレビュー';
+  name.title = item.fileName || 'プレビュー';
+
+  const expandBtn = document.createElement('button');
+  expandBtn.type = 'button';
+  expandBtn.className = 'board-item-file-expand';
+  expandBtn.textContent = '⛶';
+  expandBtn.title = '大きく表示';
+  expandBtn.setAttribute('aria-label', 'プレビューを大きく表示');
+  expandBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openPdfLightbox(previewUrl, item.fileName);
+  });
+
+  chrome.appendChild(name);
+
+  if (item.previewUrl && item.fileUrl && item.previewUrl !== item.fileUrl) {
+    const openOriginalBtn = document.createElement('button');
+    openOriginalBtn.type = 'button';
+    openOriginalBtn.className = 'board-item-file-open board-item-file-open-inline';
+    openOriginalBtn.textContent = '元ファイル';
+    openOriginalBtn.title = '元の Office ファイルを開く';
+    openOriginalBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.open(item.fileUrl, '_blank', 'noopener');
+    });
+    chrome.appendChild(openOriginalBtn);
+  }
+
+  chrome.appendChild(expandBtn);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'board-item-file-preview';
+
+  const frame = document.createElement('iframe');
+  frame.className = 'board-item-pdf-frame';
+  frame.src = `${previewUrl}#toolbar=1&navpanes=0&view=Fit`;
+  frame.title = item.fileName || 'プレビュー';
+  frame.loading = 'lazy';
+
+  const exportHandle = document.createElement('button');
+  exportHandle.type = 'button';
+  exportHandle.className = 'export-handle board-item-file-export';
+  exportHandle.textContent = '↗';
+  exportHandle.setAttribute('aria-label', 'PCにドラッグして保存');
+  setupExportHandle(exportHandle, item);
+
+  const resizeHandle = document.createElement('div');
+  resizeHandle.className = 'resize-handle';
+  resizeHandle.title = 'サイズ変更（横・縦）';
+  resizeHandle.addEventListener('pointerdown', (e) => startResize(e, item));
+
+  wrap.addEventListener('dblclick', (e) => {
+    if (e.target.closest('.export-handle, .resize-handle')) return;
+    e.stopPropagation();
+    openPdfLightbox(previewUrl, item.fileName);
+  });
+
+  wrap.appendChild(frame);
+  wrap.appendChild(exportHandle);
+  wrap.appendChild(resizeHandle);
+  shell.appendChild(chrome);
+  shell.appendChild(wrap);
+  return shell;
+}
+
+function buildFileCard(item) {
+  const card = document.createElement('div');
+  card.className = 'board-item-file';
+
+  const badge = document.createElement('div');
+  badge.className = 'board-item-file-badge';
+  badge.textContent = fileExtLabel(item.fileName);
+
+  const name = document.createElement('div');
+  name.className = 'board-item-file-name';
+  name.textContent = item.fileName;
+  name.title = item.fileName;
+
+  const openBtn = document.createElement('button');
+  openBtn.type = 'button';
+  openBtn.className = 'board-item-file-open';
+  openBtn.textContent = '開く';
+  openBtn.title = 'ファイルを開く';
+  openBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    window.open(item.fileUrl, '_blank', 'noopener');
+  });
+
+  const exportHandle = document.createElement('button');
+  exportHandle.type = 'button';
+  exportHandle.className = 'export-handle board-item-file-export';
+  exportHandle.textContent = '↗';
+  exportHandle.setAttribute('aria-label', 'PCにドラッグして保存');
+  setupExportHandle(exportHandle, item);
+
+  card.appendChild(badge);
+  card.appendChild(name);
+  card.appendChild(openBtn);
+  card.appendChild(exportHandle);
+  return card;
 }
 
 function startRotate(e, item) {
@@ -956,7 +1124,14 @@ function startRotate(e, item) {
 function createBoardItemElement(rawItem) {
   const item = {
     ...rawItem,
-    width: rawItem.type === 'image' ? (rawItem.width || 280) : null,
+    width: rawItem.type === 'image'
+      ? (rawItem.width || 280)
+      : (rawItem.type === 'file' && hasInlinePreview(rawItem))
+        ? (rawItem.width || 320)
+        : null,
+    height: (rawItem.type === 'file' && hasInlinePreview(rawItem))
+      ? (rawItem.height || 420)
+      : null,
     rotation: rawItem.rotation || 0,
     noteColor: rawItem.type === 'text' ? (rawItem.noteColor || DEFAULT_NOTE_COLOR) : null,
   };
@@ -1008,41 +1183,14 @@ function createBoardItemElement(rawItem) {
   } else if (item.type === 'file') {
     const header = buildAttachmentHeader(item, () => {});
 
-    const card = document.createElement('div');
-    card.className = 'board-item-file';
+    if (hasInlinePreview(item)) {
+      el.classList.add('board-item-pdf');
+      body.appendChild(buildPdfPreview(item));
+    } else {
+      body.appendChild(buildFileCard(item));
+    }
 
-    const badge = document.createElement('div');
-    badge.className = 'board-item-file-badge';
-    badge.textContent = fileExtLabel(item.fileName);
-
-    const name = document.createElement('div');
-    name.className = 'board-item-file-name';
-    name.textContent = item.fileName;
-    name.title = item.fileName;
-
-    const openBtn = document.createElement('button');
-    openBtn.type = 'button';
-    openBtn.className = 'board-item-file-open';
-    openBtn.textContent = '開く';
-    openBtn.title = 'ファイルを開く';
-    openBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      window.open(item.fileUrl, '_blank', 'noopener');
-    });
-
-    const exportHandle = document.createElement('button');
-    exportHandle.type = 'button';
-    exportHandle.className = 'export-handle board-item-file-export';
-    exportHandle.textContent = '↗';
-    exportHandle.setAttribute('aria-label', 'PCにドラッグして保存');
-    setupExportHandle(exportHandle, item);
-
-    card.appendChild(badge);
-    card.appendChild(name);
-    card.appendChild(openBtn);
-    card.appendChild(exportHandle);
     cacheFileBlob(item.fileUrl);
-    body.appendChild(card);
     el.appendChild(header);
     el.appendChild(body);
   } else {
@@ -1068,6 +1216,43 @@ function openLightbox(src) {
   const overlay = document.createElement('div');
   overlay.className = 'lightbox';
   overlay.innerHTML = `<img src="${src}" alt="拡大画像">`;
+  overlay.addEventListener('click', () => overlay.remove());
+  document.body.appendChild(overlay);
+}
+
+function openPdfLightbox(url, fileName) {
+  const overlay = document.createElement('div');
+  overlay.className = 'lightbox lightbox-pdf';
+
+  const panel = document.createElement('div');
+  panel.className = 'lightbox-pdf-panel';
+
+  const bar = document.createElement('div');
+  bar.className = 'lightbox-pdf-bar';
+
+  const title = document.createElement('div');
+  title.className = 'lightbox-pdf-title';
+  title.textContent = fileName || 'PDF';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'lightbox-pdf-close';
+  closeBtn.textContent = '×';
+  closeBtn.title = '閉じる';
+  closeBtn.addEventListener('click', () => overlay.remove());
+
+  const frame = document.createElement('iframe');
+  frame.className = 'lightbox-pdf-frame';
+  frame.src = `${url}#toolbar=1&navpanes=0&view=FitH`;
+  frame.title = fileName || 'PDF';
+
+  bar.appendChild(title);
+  bar.appendChild(closeBtn);
+  panel.appendChild(bar);
+  panel.appendChild(frame);
+  overlay.appendChild(panel);
+
+  panel.addEventListener('click', (e) => e.stopPropagation());
   overlay.addEventListener('click', () => overlay.remove());
   document.body.appendChild(overlay);
 }
@@ -1099,8 +1284,13 @@ function onPointerMove(e) {
 
     if (transformState.mode === 'resize') {
       const dx = e.clientX - transformState.startClientX;
-      const width = Math.min(900, Math.max(80, transformState.startWidth + dx));
-      item.width = width;
+      const dy = e.clientY - transformState.startClientY;
+      if (transformState.resizePreview) {
+        item.width = Math.min(900, Math.max(160, transformState.startWidth + dx));
+        item.height = Math.min(900, Math.max(200, transformState.startHeight + dy));
+      } else {
+        item.width = Math.min(900, Math.max(80, transformState.startWidth + dx));
+      }
       applyItemStyles(transformState.el, item);
     } else if (transformState.mode === 'rotate') {
       const angle = Math.atan2(
@@ -1136,6 +1326,7 @@ function onPointerUp(e) {
         x: item.x,
         y: item.y,
         width: item.width,
+        height: item.height,
         rotation: item.rotation,
       });
     }
@@ -1180,6 +1371,10 @@ function moveItemOnBoard(data) {
 }
 
 async function uploadFile(file) {
+  if (isOfficeFile(file)) {
+    showToast('Office ファイルを PDF に変換しています…');
+  }
+
   const formData = new FormData();
   formData.append('file', file);
 
@@ -1243,13 +1438,20 @@ async function placeAttachment(file, point) {
         width: 280,
       });
     } else {
+      const hasPreview = !!(uploaded.previewUrl || /\.pdf$/i.test(file.name || '') || file.type === 'application/pdf');
       socket.emit('board:add', {
         ...base,
         type: 'file',
         fileUrl: uploaded.url,
+        previewUrl: uploaded.previewUrl || null,
         fileName: uploaded.fileName || file.name,
         mimeType: uploaded.mimeType || file.type || 'application/octet-stream',
+        width: hasPreview ? 320 : undefined,
+        height: hasPreview ? 420 : undefined,
       });
+      if (isOfficeFile(file) && !uploaded.previewUrl) {
+        showToast('Office プレビューの変換に失敗しました');
+      }
     }
   } catch (err) {
     showToast(err.message);

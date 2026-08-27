@@ -1,6 +1,6 @@
 {
   "name": "black-board",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "オンラインで画像とテキストをやりとりできるチャットアプリ",
   "author": "honi0907",
   "license": "MIT",
@@ -14,7 +14,7 @@
     "electron": "electron .",
     "electron:client": "electron electron/client.js",
     "generate-icon": "node scripts/generate-icon.js",
-    "prebuild:host": "node scripts/generate-icon.js",
+    "prebuild:host": "node scripts/generate-icon.js && node scripts/download-libreoffice.js",
     "prebuild:client": "node scripts/generate-icon.js",
     "build:win": "npm run build:host && npm run build:client",
     "build:host": "electron-builder --win nsis --publish never",
@@ -44,6 +44,7 @@
       "electron/**/*",
       "public/**/*",
       "server.js",
+      "office-convert.js",
       "package.json"
     ],
     "extraResources": [
@@ -54,6 +55,14 @@
       {
         "from": "build/icon.png",
         "to": "icon.png"
+      },
+      {
+        "from": "build/libreoffice/staging",
+        "to": "LibreOffice"
+      },
+      {
+        "from": "THIRD_PARTY_NOTICES.md",
+        "to": "THIRD_PARTY_NOTICES.md"
       }
     ],
     "asar": true,
