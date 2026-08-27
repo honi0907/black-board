@@ -28,6 +28,9 @@ if not exist "node_modules\electron\" (
   )
 )
 
+echo  古いサーバーが残っていれば終了します...
+node scripts\free-port.js 3000
+
 echo.
 echo  Black Board（Electron）を起動しています...
 echo  終了するにはアプリウィンドウを閉じてください。

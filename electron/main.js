@@ -1,17 +1,21 @@
-const { app, BrowserWindow, dialog, Menu } = require('electron');
+const { app, BrowserWindow, dialog, Menu, ipcMain, nativeImage } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { startServer } = require('../server');
+const { setupAutoUpdater } = require('./updater');
 
 let mainWindow = null;
 let httpServer = null;
 let serverPort = null;
 let lanIps = [];
-
+let uploadDir = null;
 function getPaths() {
   const rootDir = path.join(__dirname, '..');
   const publicDir = path.join(rootDir, 'public');
-  const uploadDir = path.join(app.getPath('userData'), 'uploads');
-  return { rootDir, publicDir, uploadDir };
+  const userData = app.getPath('userData');
+  const uploadDir = path.join(userData, 'uploads');
+  const dataDir = path.join(userData, 'data');
+  return { rootDir, publicDir, uploadDir, dataDir };
 }
 
 function buildInviteText() {
@@ -31,6 +35,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      preload: path.join(__dirname, 'preload-host.js'),
     },
   });
 
@@ -65,17 +70,31 @@ function createWindow() {
 
   mainWindow.loadURL(`http://localhost:${serverPort}`);
 
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url.startsWith('file://')) event.preventDefault();
+  });
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     require('electron').shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  mainWindow.once('ready-to-show', () => {
+    setupAutoUpdater(mainWindow);
+  });
 }
 
 async function startApp() {
-  const { rootDir, publicDir, uploadDir } = getPaths();
+  const paths = getPaths();
+  uploadDir = paths.uploadDir;
 
   try {
-    const info = await startServer({ rootDir, publicDir, uploadDir });
+    const info = await startServer({
+      rootDir: paths.rootDir,
+      publicDir: paths.publicDir,
+      uploadDir: paths.uploadDir,
+      dataDir: paths.dataDir,
+    });
     httpServer = info.server;
     serverPort = info.port;
     lanIps = info.lanIps;
@@ -94,6 +113,23 @@ function stopServer() {
 }
 
 app.whenReady().then(startApp);
+
+ipcMain.handle('app:get-version', () => app.getVersion());
+
+ipcMain.on('ondragstart', (event, imageUrl) => {
+  if (!uploadDir || !imageUrl || !imageUrl.startsWith('/uploads/')) return;
+
+  const filename = path.basename(imageUrl);
+  const filePath = path.join(uploadDir, filename);
+  if (!fs.existsSync(filePath)) return;
+
+  let icon = nativeImage.createFromPath(filePath);
+  if (icon.isEmpty()) {
+    icon = nativeImage.createEmpty();
+  }
+
+  event.sender.startDrag({ file: filePath, icon });
+});
 
 app.on('window-all-closed', () => {
   stopServer();

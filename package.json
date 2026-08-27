@@ -1,6 +1,6 @@
 {
   "name": "black-board",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "オンラインで画像とテキストをやりとりできるチャットアプリ",
   "author": "honi0907",
   "license": "MIT",
@@ -15,9 +15,11 @@
     "electron:client": "electron electron/client.js",
     "build:win": "npm run build:host && npm run build:client",
     "build:host": "electron-builder --win nsis --publish never",
+    "build:host:release": "electron-builder --win nsis --publish always",
     "build:client": "electron-builder --win nsis --config electron-builder.client.json --publish never"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "express": "^4.21.2",
     "multer": "^1.4.5-lts.1",
     "socket.io": "^4.8.1"
@@ -45,7 +47,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
@@ -56,9 +60,17 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Black Board",
-      "installerLanguages": ["ja_JP", "en_US"],
+      "installerLanguages": [
+        "ja_JP",
+        "en_US"
+      ],
       "language": "1041",
       "deleteAppDataOnUninstall": false
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "honi0907",
+      "repo": "black-board"
     }
   }
 }

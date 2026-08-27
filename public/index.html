@@ -3,46 +3,111 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Black Board - チャット</title>
+  <title>Black Board</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <div id="login-screen" class="screen">
+    <div id="host-info-login" class="host-info hidden">
+      <span class="host-info-label">接続 URL</span>
+      <div id="host-urls-login" class="host-urls"></div>
+    </div>
     <div class="login-card">
       <h1>Black Board</h1>
-      <p class="subtitle">テキストと画像をリアルタイムでやりとり</p>
+      <p class="subtitle">画像やメモをボードに自由に配置</p>
       <input type="text" id="username-input" placeholder="ユーザー名" maxlength="20" autofocus>
-      <button id="join-btn">参加する</button>
+      <button type="button" id="join-btn" onclick="window.joinBoard && window.joinBoard()">参加する</button>
     </div>
   </div>
 
-  <div id="chat-screen" class="screen hidden">
-    <header class="chat-header">
-      <div>
-        <h1>Black Board</h1>
-        <span id="online-count">0 人がオンライン</span>
+  <div id="board-screen" class="screen hidden">
+    <header class="board-top">
+      <div class="board-top-row">
+        <div class="board-top-brand">
+          <span class="app-title">Black Board</span>
+          <span id="online-count">0 人</span>
+        </div>
+        <div class="board-top-tools">
+          <button type="button" id="save-btn" class="tool-btn" title="ボードを保存">保存</button>
+          <button type="button" id="export-btn" class="tool-btn" title="JSONファイルとしてダウンロード">書き出し</button>
+          <span id="save-status" class="save-status" title="自動保存の状態"></span>
+          <input type="file" id="file-input" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+          <button type="button" id="add-image-btn" class="tool-btn" title="画像を追加">＋画像</button>
+          <div id="host-info" class="host-url-inline hidden">
+            <div id="host-urls" class="host-urls"></div>
+          </div>
+          <form id="note-form" class="note-form">
+            <button type="button" id="note-form-color-btn" class="note-color-btn note-form-color" title="ダブルクリックで付箋の色を変更"></button>
+            <input type="text" id="note-input" placeholder="付箋..." maxlength="200" autocomplete="off">
+            <button type="submit" id="note-btn" class="tool-btn tool-btn-primary" title="付箋を追加">
+              <svg class="postit-icon postit-icon-btn" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M6 2h10a2 2 0 0 1 2 2v12l-4-4H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/>
+                <path fill="currentColor" opacity="0.5" d="M16 16h4v4"/>
+              </svg>
+              <span class="note-btn-label">追加</span>
+            </button>
+          </form>
+        </div>
       </div>
+      <nav id="board-tabs" class="board-tabs" aria-label="ボードタブ">
+        <div id="board-tabs-list" class="board-tabs-list"></div>
+        <button type="button" id="board-tab-add" class="board-tab-add" title="新しいボード">＋</button>
+      </nav>
     </header>
 
-    <main id="messages" class="messages"></main>
-
-    <footer class="chat-input">
-      <div id="image-preview" class="image-preview hidden">
-        <img id="preview-img" alt="プレビュー">
-        <button id="remove-preview" type="button" aria-label="画像を削除">&times;</button>
+    <aside id="draw-toolbar" class="draw-toolbar" aria-label="描画ツール">
+      <button type="button" class="tool-btn draw-tool-btn active" data-draw-tool="move" title="移動" aria-label="移動">
+        <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 11V7.5a1.5 1.5 0 1 1 3 0V11"/>
+          <path d="M11 11V6.5a1.5 1.5 0 1 1 3 0V11"/>
+          <path d="M14 11V8.5a1.5 1.5 0 1 1 3 0V12a5 5 0 0 1-5 5H9.5a3.5 3.5 0 0 1-3.5-3.5V13a1.5 1.5 0 1 1 3 0"/>
+        </svg>
+      </button>
+      <button type="button" class="tool-btn draw-tool-btn" data-draw-tool="pen" title="ペン" aria-label="ペン">
+        <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 20h4l9.5-9.5a2.1 2.1 0 0 0-3-3L5 17v3z"/>
+          <path d="M13.5 6.5l3 3"/>
+        </svg>
+      </button>
+      <button type="button" class="tool-btn draw-tool-btn" data-draw-tool="eraser" title="一筆消し" aria-label="一筆消し">
+        <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 20h10"/>
+          <path d="M5 18l8.5-8.5a2 2 0 0 1 2.8 0l1.7 1.7a2 2 0 0 1 0 2.8L11 20"/>
+          <path d="M14 7l3 3"/>
+        </svg>
+      </button>
+      <div class="draw-toolbar-divider"></div>
+      <div id="color-palette" class="color-palette" title="クリックで選択 · ダブルクリックで色変更">
+        <button type="button" class="color-dot active" data-i="0"></button>
+        <button type="button" class="color-dot" data-i="1"></button>
+        <button type="button" class="color-dot" data-i="2"></button>
       </div>
-      <form id="message-form">
-        <label class="attach-btn" title="画像を添付">
-          <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
-          📎
-        </label>
-        <input type="text" id="message-input" placeholder="メッセージを入力..." maxlength="2000" autocomplete="off">
-        <button type="submit" id="send-btn">送信</button>
-      </form>
-    </footer>
+      <input type="color" id="color-picker" class="color-picker-input" tabindex="-1" aria-hidden="true">
+      <div class="draw-toolbar-divider"></div>
+      <div class="size-palette">
+        <button type="button" class="size-dot" data-i="0" title="細"></button>
+        <button type="button" class="size-dot active" data-i="1" title="中"></button>
+        <button type="button" class="size-dot" data-i="2" title="粗"></button>
+      </div>
+    </aside>
+
+    <div id="board-wrap" class="board-wrap">
+      <div id="board" class="board">
+        <canvas id="draw-canvas"></canvas>
+        <div id="board-empty" class="board-empty">
+          <div class="board-empty-icon">🖼</div>
+          <p>画像をドラッグ＆ドロップ · Ctrl+V</p>
+        </div>
+      </div>
+    </div>
   </div>
 
+  <div id="toast" class="toast hidden"></div>
+  <div id="app-version" class="app-version hidden" aria-hidden="true"></div>
+  <input type="color" id="note-color-picker" class="color-picker-input" tabindex="-1" aria-hidden="true">
+
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js"></script>
+  <script src="/draw.js?v=6"></script>
+  <script src="/app.js?v=11"></script>
 </body>
 </html>
