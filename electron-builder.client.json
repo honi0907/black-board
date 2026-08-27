@@ -15,12 +15,22 @@
   ],
   "asar": true,
   "artifactName": "${productName}-Setup-${version}.${ext}",
+  "extraResources": [
+    {
+      "from": "build/icon.ico",
+      "to": "icon.ico"
+    },
+    {
+      "from": "build/icon.png",
+      "to": "icon.png"
+    }
+  ],
   "extraMetadata": {
     "main": "electron/client.js"
   },
   "win": {
-    "icon": "build/icon.png",
-    "signAndEditExecutable": false,
+    "icon": "icon.ico",
+    "signAndEditExecutable": true,
     "target": [
       {
         "target": "nsis",

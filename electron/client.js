@@ -1,6 +1,7 @@
 const { app, BrowserWindow, dialog, Menu, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { resolveAppIconPath } = require('./icon-path');
 
 let mainWindow = null;
 let isOnChat = false;
@@ -56,14 +57,14 @@ function createMenu() {
 }
 
 function createWindow() {
-  const iconPath = path.join(__dirname, '..', 'build', 'icon.png');
+  const iconPath = resolveAppIconPath();
   mainWindow = new BrowserWindow({
     width: 960,
     height: 720,
     minWidth: 360,
     minHeight: 480,
     title: 'Black Board Connect',
-    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    icon: iconPath || undefined,
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -124,6 +125,10 @@ app.whenReady().then(() => {
   createWindow();
   showConnectScreen();
 });
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.blackboard.chat.client');
+}
 
 app.on('window-all-closed', () => {
   app.quit();

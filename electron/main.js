@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { startServer } = require('../server');
 const { setupAutoUpdater } = require('./updater');
+const { resolveAppIconPath } = require('./icon-path');
 
 let mainWindow = null;
 let httpServer = null;
@@ -25,14 +26,14 @@ function buildInviteText() {
 }
 
 function createWindow() {
-  const iconPath = path.join(__dirname, '..', 'build', 'icon.png');
+  const iconPath = resolveAppIconPath();
   mainWindow = new BrowserWindow({
     width: 960,
     height: 720,
     minWidth: 360,
     minHeight: 480,
     title: 'Black Board',
-    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    icon: iconPath || undefined,
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -115,6 +116,10 @@ function stopServer() {
 }
 
 app.whenReady().then(startApp);
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.blackboard.chat');
+}
 
 ipcMain.handle('app:get-version', () => app.getVersion());
 
